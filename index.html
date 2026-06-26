@@ -96,6 +96,24 @@ body{
 .period-chip .big{font-size:20px;font-weight:800;}
 .period-chip .small{font-size:11.5px;color:rgba(255,255,255,.7);margin-top:3px;}
 
+/* ---------- division tab ---------- */
+.div-header{background:linear-gradient(135deg,var(--brand-deep),var(--brand));border-radius:var(--radius);padding:22px 26px;color:#fff;margin-top:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.div-header .dh-name{font-size:22px;font-weight:800;}
+.div-header .dh-sub{font-size:13px;opacity:.75;margin-top:4px;}
+.div-header .dh-achv{text-align:right;}
+.div-header .dh-pct{font-size:32px;font-weight:800;}
+.div-header .dh-label{font-size:12px;opacity:.7;}
+.month-table-wrap{overflow-x:auto;}
+table.month-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:700px;}
+table.month-table th{background:var(--base);padding:9px 12px;text-align:right;font-weight:700;font-size:11.5px;color:var(--ink-soft);border-bottom:1px solid var(--border);}
+table.month-table th:first-child{text-align:left;}
+table.month-table td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--border);font-feature-settings:"tnum" 1;}
+table.month-table td:first-child{text-align:left;font-weight:700;}
+table.month-table tr:last-child td{border-bottom:none;font-weight:800;background:var(--gold-soft);}
+table.month-table tr:hover td{background:#FAFBFC;}
+table.month-table tr:last-child:hover td{background:var(--gold-soft);}
+.achv-cell{display:inline-flex;padding:2px 7px;border-radius:999px;font-weight:700;font-size:11px;}
+
 /* ---------- view toggle ---------- */
 .view-toggle-bar{display:flex;align-items:center;gap:12px;margin-top:18px;flex-wrap:wrap;}
 .vt-label{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
@@ -322,6 +340,10 @@ table.fin tr.total-row:hover td{background:var(--gold-soft);}
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="mgmt">경영 현황</button>
     <button class="tab-btn" data-tab="fs">재무제표</button>
+    <button class="tab-btn" data-tab="div-컨설팅본부">컨설팅</button>
+    <button class="tab-btn" data-tab="div-마케팅본부_데이터사업">데이터사업</button>
+    <button class="tab-btn" data-tab="div-마케팅본부_B2B사업">B2B사업</button>
+    <button class="tab-btn" data-tab="div-솔루션본부">솔루션</button>
   </div>
 
   <!-- ===== TAB: 경영 현황 ===== -->
@@ -542,6 +564,12 @@ table.fin tr.total-row:hover td{background:var(--gold-soft);}
   </section>
 
   </div><!-- /tab-fs -->
+
+  <!-- ===== DIVISION TABS ===== -->
+  <div id="tab-div-컨설팅본부" class="tab-panel" style="display:none;"></div>
+  <div id="tab-div-마케팅본부_데이터사업" class="tab-panel" style="display:none;"></div>
+  <div id="tab-div-마케팅본부_B2B사업" class="tab-panel" style="display:none;"></div>
+  <div id="tab-div-솔루션본부" class="tab-panel" style="display:none;"></div>
 
   <div class="footer">
     <div>데이터 출처: 2026년_손익분석_5월.xlsx (사업계획 vs 실적, 1~5월 누적) · 6월 이후는 사업계획 수치입니다.</div>
@@ -1123,10 +1151,222 @@ function renderCash(){
   }).join('');
 }
 
+/* ---------------- DIVISION TABS ---------------- */
+const DIV_CHART_INSTANCES = {};
+const DIV_RENDERED = {};
+
+const DIV_DISPLAY = {
+  '컨설팅본부': {name:'컨설팅본부', color:'#1F3A66', accent:'#3C68AE'},
+  '마케팅본부_데이터사업': {name:'마케팅본부 · 데이터사업', color:'#1F3A66', accent:'#B8924A'},
+  '마케팅본부_B2B사업': {name:'마케팅본부 · B2B사업', color:'#1F3A66', accent:'#C8443B'},
+  '솔루션본부': {name:'솔루션본부', color:'#1F3A66', accent:'#3C68AE'},
+};
+
+function renderDivisionTab(dept){
+  if(DIV_RENDERED[dept]) return;
+  DIV_RENDERED[dept] = true;
+
+  const panel = document.getElementById('tab-div-'+dept);
+  const meta = DIV_DISPLAY[dept];
+  const ytd = DATA.ytd[dept];
+  const monthly = DATA.monthly[dept];
+  const AS_OF = DATA.asOfMonth;
+  const MONTH_LABELS = Array.from({length:12},(_,i)=>(i+1)+'월');
+  const accent = meta.accent;
+
+  // ── header ──
+  const revTone = tone(ytd.revenue_achv-1);
+  const profTone = tone(ytd.profit_achv-1);
+
+  panel.innerHTML = `
+  <div class="div-header">
+    <div>
+      <div class="dh-name">${meta.name}</div>
+      <div class="dh-sub">1~${AS_OF}월 누적 실적 (YTD) · 계획 대비 달성 현황</div>
+    </div>
+    <div class="dh-achv">
+      <div class="dh-pct">${pct(ytd.revenue_achv,1)}</div>
+      <div class="dh-label">매출 달성률</div>
+    </div>
+  </div>
+
+  <!-- KPI 카드 -->
+  <div class="section" style="margin-top:24px;">
+    <div class="kpi-grid" id="div-kpi-${dept}"></div>
+  </div>
+
+  <!-- 월별 추이 -->
+  <div class="section">
+    <div class="section-head">
+      <div><p class="eyebrow">Monthly Trend</p><h2 class="section-title">월별 매출 · 영업이익 추이</h2></div>
+      <div class="section-note">실선 = 실적 · 옅은 막대 = 계획 · 단위: 억원</div>
+    </div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>매출액</h3><div class="unit">단위: 억원</div>
+        <div class="canvas-wrap"><canvas id="div-rev-${dept}"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>영업이익</h3><div class="unit">단위: 억원</div>
+        <div class="canvas-wrap"><canvas id="div-prof-${dept}"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 월별 실적 상세 테이블 -->
+  <div class="section">
+    <div class="section-head">
+      <div><p class="eyebrow">Detail</p><h2 class="section-title">월별 손익 상세</h2></div>
+      <div class="section-note">단위: 억원</div>
+    </div>
+    <div class="table-card">
+      <div class="month-table-wrap">
+        <table class="month-table" id="div-tbl-${dept}"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 비용 구조 -->
+  <div class="section">
+    <div class="section-head">
+      <div><p class="eyebrow">Cost Structure</p><h2 class="section-title">비용 구조 (YTD)</h2></div>
+      <div class="section-note">매출액 대비 비중</div>
+    </div>
+    <div class="ratio-card">
+      <div id="div-cost-${dept}"></div>
+      <div class="sga-legend" id="div-cost-legend-${dept}" style="margin-top:14px;"></div>
+    </div>
+  </div>
+
+  <!-- YoY -->
+  <div class="section">
+    <div class="section-head">
+      <div><p class="eyebrow">YoY</p><h2 class="section-title">전년 동기 비교</h2></div>
+      <div class="section-note">1~${AS_OF}월 누적 기준</div>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);" id="div-yoy-${dept}"></div>
+  </div>`;
+
+  // ── KPI 카드 ──
+  document.getElementById(`div-kpi-${dept}`).innerHTML = [
+    {label:`매출액 (1~${AS_OF}월)`, val:eokWon(ytd.revenue_actual), pill:`달성 ${pct(ytd.revenue_achv)}`, t:revTone, sub:`계획 ${eokWon(ytd.revenue_plan)}`},
+    {label:`영업이익 (1~${AS_OF}월)`, val:eokWon(ytd.profit_actual), pill:`달성 ${pct(ytd.profit_achv)}`, t:profTone, sub:`계획 ${eokWon(ytd.profit_plan)}`},
+    {label:'영업이익률', val:pct(ytd.op_margin_actual), pill:`계획대비 ${pctSigned(ytd.op_margin_actual-ytd.op_margin_plan)}p`, t:tone(ytd.op_margin_actual-ytd.op_margin_plan), sub:`계획 ${pct(ytd.op_margin_plan)}`},
+    {label:'매출총이익률', val:pct(ytd.gross_margin_actual), pill:'', t:'neu', sub:`계획 ${pct(ytd.gross_margin_plan)}`},
+  ].map(c=>`<div class="kpi-card">
+    <div class="kpi-label">${c.label}</div>
+    <div class="kpi-value num">${c.val}</div>
+    <div class="kpi-foot">${c.pill?`<span class="pill ${c.t}">${c.pill}</span>`:''}<span class="kpi-plan">${c.sub}</span></div>
+  </div>`).join('');
+
+  // ── 월별 차트 ──
+  function mkChart(canvasId, actualArr, planArr, color){
+    return new Chart(document.getElementById(canvasId),{
+      data:{
+        labels:MONTH_LABELS,
+        datasets:[
+          {type:'bar', label:'계획', data:planArr.map(v=>v?v/1e8:null), backgroundColor:'#E3E7ED', borderRadius:4, order:2, maxBarThickness:22},
+          {type:'bar', label:'실적', data:actualArr.map(v=>v?v/1e8:null), backgroundColor:color, borderRadius:4, order:1, maxBarThickness:22},
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}, tooltip:{callbacks:{label:(c)=>`${c.dataset.label}: ${c.raw!==null?c.raw.toFixed(1)+'억원':'-'}`}}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:10}}}, y:{grid:{color:'#EEF0F3'},ticks:{font:{size:10},callback:v=>v+'억'}}}
+      }
+    });
+  }
+  mkChart(`div-rev-${dept}`, monthly.revenue_actual, monthly.revenue_plan, accent);
+  mkChart(`div-prof-${dept}`, monthly.profit_actual, monthly.profit_plan, accent);
+
+  // ── 월별 테이블 ──
+  const months = Array.from({length:AS_OF},(_,i)=>i);
+  const tbl = document.getElementById(`div-tbl-${dept}`);
+  const hdrs = ['구분',...months.map(i=>`${i+1}월`),'합계'];
+  tbl.innerHTML = `<thead><tr>${hdrs.map(h=>`<th>${h}</th>`).join('')}</tr></thead>`;
+  const rows = [
+    {label:'매출액(실적)', arr:monthly.revenue_actual},
+    {label:'매출액(계획)', arr:monthly.revenue_plan},
+    {label:'달성률', arr:null, special:'achv_rev'},
+    {label:'영업이익(실적)', arr:monthly.profit_actual},
+    {label:'영업이익(계획)', arr:monthly.profit_plan},
+    {label:'달성률', arr:null, special:'achv_prof'},
+    {label:'영업이익률', arr:null, special:'margin'},
+  ];
+  const tbody = rows.map(row=>{
+    let cells;
+    if(row.special==='achv_rev'){
+      cells = months.map(i=>{
+        const a=monthly.revenue_actual[i], p=monthly.revenue_plan[i];
+        const r = a&&p ? a/p : null;
+        const t = r ? tone(r-1) : 'neu';
+        return `<td>${r?`<span class="achv-cell" style="background:${t==='pos'?'var(--pos-soft)':'var(--neg-soft)'};color:${t==='pos'?'var(--pos)':'var(--neg)'}">${pct(r,0)}</span>`:'-'}</td>`;
+      });
+      const ar=ytd.revenue_actual, ap=ytd.revenue_plan, t=tone(ytd.revenue_achv-1);
+      cells.push(`<td><span class="achv-cell" style="background:${t==='pos'?'var(--pos-soft)':'var(--neg-soft)'};color:${t==='pos'?'var(--pos)':'var(--neg)'}">${pct(ytd.revenue_achv,1)}</span></td>`);
+    } else if(row.special==='achv_prof'){
+      cells = months.map(i=>{
+        const a=monthly.profit_actual[i], p=monthly.profit_plan[i];
+        const r = a&&p ? a/p : null;
+        const t = r ? tone(r-1) : 'neu';
+        return `<td>${r?`<span class="achv-cell" style="background:${t==='pos'?'var(--pos-soft)':'var(--neg-soft)'};color:${t==='pos'?'var(--pos)':'var(--neg)'}">${pct(r,0)}</span>`:'-'}</td>`;
+      });
+      const t=tone(ytd.profit_achv-1);
+      cells.push(`<td><span class="achv-cell" style="background:${t==='pos'?'var(--pos-soft)':'var(--neg-soft)'};color:${t==='pos'?'var(--pos)':'var(--neg)'}">${pct(ytd.profit_achv,1)}</span></td>`);
+    } else if(row.special==='margin'){
+      cells = months.map(i=>{
+        const rev=monthly.revenue_actual[i], prof=monthly.profit_actual[i];
+        return `<td>${rev&&prof?pct(prof/rev,1):'-'}</td>`;
+      });
+      cells.push(`<td>${pct(ytd.op_margin_actual,1)}</td>`);
+    } else {
+      const sum = row.arr.slice(0,AS_OF).reduce((s,v)=>s+(v||0),0);
+      cells = months.map(i=>`<td class="num">${row.arr[i]!==null?eok(row.arr[i]):'-'}</td>`);
+      cells.push(`<td class="num">${eok(sum)}</td>`);
+    }
+    return `<tr><td>${row.label}</td>${cells.join('')}</tr>`;
+  });
+  // 합계 강조행
+  tbl.innerHTML += `<tbody>${tbody.join('')}</tbody>`;
+
+  // ── 비용 구조 ──
+  const rev = ytd.revenue_actual;
+  const costSegs = [
+    {label:'매출원가율', val:ytd.cogs_actual/rev, color:'#8891A0'},
+    {label:'사업부인건비율', val:ytd.labor_dept_actual/rev, color:accent},
+    {label:'지원부인건비율', val:ytd.labor_support_actual/rev, color:'#3C68AE'},
+    {label:'판관비율', val:ytd.sga_actual/rev, color:'#B8924A'},
+    {label:'영업이익률', val:Math.max(0,ytd.profit_actual/rev), color:'#C8443B'},
+  ];
+  document.getElementById(`div-cost-${dept}`).innerHTML = `
+    <div class="ratio-row">
+      <div class="rlabel">비용 구성</div>
+      <div class="rbar">${costSegs.map(s=>`<div style="width:${Math.max(0,s.val*100).toFixed(2)}%;background:${s.color}"></div>`).join('')}</div>
+      <div class="rval num">영업이익 ${pct(ytd.op_margin_actual,1)}</div>
+    </div>`;
+  document.getElementById(`div-cost-legend-${dept}`).innerHTML =
+    costSegs.map(s=>`<span class="item"><i style="background:${s.color}"></i>${s.label} <b>${pct(s.val,1)}</b></span>`).join('');
+
+  // ── YoY ──
+  document.getElementById(`div-yoy-${dept}`).innerHTML = [
+    {label:`매출액 전년동기 대비`, cur:ytd.revenue_actual, prev:ytd.revenue_2025, yoy:ytd.revenue_yoy},
+    {label:`영업이익 전년동기 대비`, cur:ytd.profit_actual, prev:ytd.profit_2025, yoy:ytd.profit_yoy},
+  ].map(c=>`<div class="kpi-card">
+    <div class="kpi-label">${c.label}</div>
+    <div class="kpi-value num">${eokWon(c.cur)}</div>
+    <div class="kpi-foot"><span class="pill ${tone(c.yoy)}">${pctSigned(c.yoy)}</span><span class="kpi-plan">전년 ${eokWon(c.prev)}</span></div>
+  </div>`).join('');
+}
+
 /* ---------------- TAB SWITCHING ---------------- */
 function switchTab(tabId){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.getAttribute('data-tab')===tabId));
   document.querySelectorAll('.tab-panel').forEach(p=>p.style.display = p.id==='tab-'+tabId ? '' : 'none');
+  // lazy render division tabs on first click
+  if(tabId.startsWith('div-')){
+    const dept = tabId.replace('div-','');
+    renderDivisionTab(dept);
+  }
 }
 
 /* ---------------- PROFITABILITY RATIOS ---------------- */
