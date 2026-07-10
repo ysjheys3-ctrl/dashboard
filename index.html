@@ -370,7 +370,7 @@ table.month-table tr:last-child:hover td{background:var(--gold-soft);}
         <p class="eyebrow">Company Overview</p>
         <h2 class="section-title" id="kpiSectionTitle">전사 핵심 지표 (YTD)</h2>
       </div>
-      <div class="section-note" id="kpiSectionNote">1~5월 누적 실적 · 전년동기 비교</div>
+      <div class="section-note" id="kpiSectionNote">1~6월 누적 실적 · 전년동기 비교</div>
     </div>
     <div class="kpi-grid" id="kpiGrid"></div>
   </section>
@@ -394,7 +394,7 @@ table.month-table tr:last-child:hover td{background:var(--gold-soft);}
         <p class="eyebrow">Monthly Trend</p>
         <h2 class="section-title" id="trendTitle">월별 매출·영업이익 추이</h2>
       </div>
-      <div class="section-note">실선 막대 = 실적(1~5월) · 옅은 막대 = 사업계획(연간)</div>
+      <div class="section-note">실선 막대 = 실적(1~6월) · 옅은 막대 = 사업계획(연간)</div>
     </div>
     <div class="chart-grid">
       <div class="chart-card">
@@ -470,7 +470,7 @@ table.month-table tr:last-child:hover td{background:var(--gold-soft);}
         <p class="eyebrow">Cost &amp; People</p>
         <h2 class="section-title">판관비 구성 및 인력 현황</h2>
       </div>
-      <div class="section-note">전사 기준 · 1~5월 · 재직인원 기준 (휴직자 제외)</div>
+      <div class="section-note">전사 기준 · 1~6월 · 재직인원 기준 (휴직자 제외)</div>
     </div>
     <div class="two-col">
       <div class="chart-card">
@@ -614,7 +614,7 @@ function tone(v, threshold=0){ return v>=threshold ? 'pos':'neg'; }
 
 /* ---------------- VIEW MODE (MTD / YTD) + MONTH SELECTOR ---------------- */
 let viewMode = 'ytd'; // 기본값: 누적(YTD)
-let selectedMonth = DATA.asOfMonth; // 기본값: 최신 실적월 (5월)
+let selectedMonth = DATA.asOfMonth; // 기본값: 최신 실적월 (6월)
 
 function sumRange(arr, start, count){
   let sum = 0, found = false;
@@ -1592,7 +1592,7 @@ function renderIS(){
   }
 
   document.getElementById('isCards').innerHTML = `
-  <div class="is-col-head"><span>1~5월 실적</span><span>계획</span></div>
+  <div class="is-col-head"><span>1~6월 실적</span><span>계획</span></div>
   <div class="is-card">
     ${isRow('total','I. 매출액', z.revenue_actual, z.revenue_plan)}
     ${isRow('minus sub','매출원가 (원가+사업부인건비)', cogs_formal, cogs_p)}
