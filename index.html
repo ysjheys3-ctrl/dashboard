@@ -385,6 +385,7 @@ table.month-table tr:last-child:hover td{background:var(--gold-soft);}
     </div>
     <div class="division-strip" id="divisionStrip"></div>
     <div class="selected-note" id="selectedNote"></div>
+    <div id="divCommentGrid" style="display:none;margin-top:12px;"></div>
   </section>
 
   <section class="section">
@@ -445,7 +446,7 @@ table.month-table tr:last-child:hover td{background:var(--gold-soft);}
         <p class="eyebrow">Cost Structure</p>
         <h2 class="section-title">비용구조 및 수익성 비율 (YTD)</h2>
       </div>
-      <div class="section-note">매출액 대비 비중 · 경영지원본부는 매출 성격(내부배분)상 비율 산정에서 제외</div>
+      <div class="section-note">매출액 대비 비중 · 경영지원본부는 내부배분 매출 특성상 비율 산정에서 제외</div>
     </div>
     <div class="ratio-card">
       <div id="ratioBars"></div>
@@ -512,7 +513,7 @@ table.month-table tr:last-child:hover td{background:var(--gold-soft);}
         <p class="eyebrow">Income Statement</p>
         <h2 class="section-title">손익계산서</h2>
       </div>
-      <div class="section-note">관리회계 기준 · 전사(ZEROIN) 1~5월 누적 · 단위: 백만원</div>
+      <div class="section-note">관리회계 기준 · 전사(ZEROIN) 1~6월 누적 · 단위: 백만원</div>
     </div>
     <div id="isCards"></div>
   </section>
@@ -533,7 +534,7 @@ table.month-table tr:last-child:hover td{background:var(--gold-soft);}
       </div>
     </div>
     <div id="cashKpiGrid" style="margin-top:14px;display:grid;grid-template-columns:repeat(5,1fr);gap:14px;"></div>
-    <div class="bs-note" style="margin-top:12px;">6월말 현금 58.5억 중 정기예금·신탁 10억(3개월, 연 3.43%), 수시RP 30억(연 2.35%), CMA 10억(연 2.2%)으로 운용 중이며, 잔여 약 6억은 보통예금 유지 중입니다.</div>
+    <div class="bs-note" style="margin-top:12px;">6월말 현금 58.5억 중 정기예금·신탁 10억(3개월, 연 3.43%), 수시RP 30억(연 2.35%), CMA 10억(연 2.2%)으로 운용 중이며, 잔여 약 8.5억은 보통예금 유지 중입니다.</div>
   </section>
 
   <!-- 수익성 비율 -->
@@ -589,6 +590,16 @@ const DEPT_META = {
   '마케팅본부_B2B사업': {label:'마케팅본부(B2B)', short:'B2B사업'},
   '솔루션본부': {label:'솔루션본부', short:'솔루션'},
   '경영지원본부': {label:'경영지원본부', short:'경영지원'},
+};
+
+const DIV_COMMENTS = {
+  6: {
+    '경영지원본부': '퇴직연금 평가 방법론 비용 2.8천만원 집행',
+    '컨설팅본부': '사업계획상 선반영한 용역비 6천만원 미집행',
+    '마케팅본부_데이터사업': '해외정보 -3천만 미달, 데이터피딩 외 -3.4천만 미달 / IDC이전 용역비 -4.4천만 미집행(9월 예정)',
+    '마케팅본부_B2B사업': '영일디지트를 통한 매출 증가 +3.1억, 장려금 +4.6천만 초과 수취',
+    '솔루션본부': '정보제공 -4.7천만 미달, 업무제휴 -2.2천만 미달, IDC이전 용역비 -1.3억 미집행(9월 예정)',
+  }
 };
 const RING_DEPTS = ['컨설팅본부','마케팅본부_데이터사업','마케팅본부_B2B사업','솔루션본부'];
 const TABLE_DEPTS = ['ZEROIN','컨설팅본부','마케팅본부_데이터사업','마케팅본부_B2B사업','솔루션본부','경영지원본부'];
@@ -691,12 +702,14 @@ function setViewMode(mode){
   viewMode = mode;
   applyViewModeLabels(mode);
   renderKPI(); renderDivisionStrip(); renderWaterfall(); renderTable();
+  updateCommentGrid();
 }
 
 function setMonth(month){
   selectedMonth = month;
   applyViewModeLabels(viewMode);
   renderKPI(); renderDivisionStrip(); renderWaterfall(); renderTable();
+  updateCommentGrid();
 }
 
 function initMonthToggle(){
@@ -795,7 +808,6 @@ function renderDivisionStrip(){
   const improved = diff >= 0;
   html += `
     <div class="cost-card" data-dept="경영지원본부">
-      <div class="tag">비용센터</div>
       <div class="dept-name">경영지원본부</div>
       <div class="value num">${eokWon(cc.profit_actual)}</div>
       <div class="compare">영업손익 · 계획 ${eokWon(cc.profit_plan)}</div>
@@ -824,7 +836,26 @@ function updateSelection(){
     `<b>${meta.label}</b> ${pLabel} 매출 <b class="num">${eokWon(y.revenue_actual)}</b> (계획 ${eokWon(y.revenue_plan)}, 달성률 ${pct(y.revenue_achv)}) · `+
     `영업이익 <b class="num">${eokWon(y.profit_actual)}</b> (계획 ${eokWon(y.profit_plan)}, 달성률 ${pct(y.profit_achv)}) · `+
     `영업이익률 ${pct(y.op_margin_actual)}`;
+  updateCommentGrid();
   updateTrendCharts();
+}
+
+function updateCommentGrid(){
+  const el = document.getElementById('divCommentGrid');
+  const comments = viewMode==='month' && selectedMonth===DATA.asOfMonth ? DIV_COMMENTS[DATA.asOfMonth] : null;
+  if(!comments){ el.style.display='none'; return; }
+  const depts = ['컨설팅본부','마케팅본부_데이터사업','마케팅본부_B2B사업','솔루션본부','경영지원본부'];
+  const cards = depts.map(function(d){
+    const c = comments[d];
+    if(!c) return '';
+    return '<div style="background:#fff;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;">'
+      + '<div style="font-size:11px;font-weight:700;color:#92400e;margin-bottom:4px;">'+DEPT_META[d].label+'</div>'
+      + '<div style="font-size:12.5px;color:#1c1917;">'+c+'</div>'
+      + '</div>';
+  }).join('');
+  el.style.display='';
+  el.innerHTML = '<div style="font-size:11.5px;font-weight:700;color:#92400e;margin-bottom:8px;">📌 '+DATA.asOfMonth+'월 본부별 특이사항</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">'+cards+'</div>';
 }
 
 /* ---------------- TREND CHARTS ---------------- */
@@ -919,7 +950,7 @@ function renderTable(){
     const profTone = tone(y.profit_achv-1);
     return `
       <tr class="${isTotal?'total-row':(isCost?'cost-row':'')}">
-        <td><div class="dept-cell"><span class="name">${DEPT_META[d].label}</span>${isCost?'<span class="tagline">비용센터</span>':''}</div></td>
+        <td><div class="dept-cell"><span class="name">${DEPT_META[d].label}</span></div></td>
         <td class="num">${eok(y.revenue_actual)}</td>
         <td class="num">${eok(y.revenue_plan)}</td>
         <td><span class="achv-pill ${revTone==='pos'?'pos':'neg'}" style="background:${revTone==='pos'?'var(--pos-soft)':'var(--neg-soft)'};color:${revTone==='pos'?'var(--pos)':'var(--neg)'}">${pct(y.revenue_achv,1)}</span></td>
@@ -1099,7 +1130,7 @@ const CASH = {
     '태양광 매입 대금(미래에스엠) 5.5억 지급',
     '태양광 매입 대금(미래에스엠) 4.7억 지급',
     'KG에코솔루션 배당금 1.5억 + KG케미칼 배당금 21억 4,700만원 입금',
-    '태양광 매출 대금 11억 6,500만원 회수',,
+    '태양광 매출 대금 11억 6,500만원 회수',
     '태양광 매출 대금 3억 7,700만원 회수',
   ],
 };
@@ -1458,14 +1489,16 @@ function renderProfitRatios(){
 /* ---------------- BALANCE SHEET ---------------- */
 const BS_DETAIL = {
   cur: {
-    ca:9702807207, ca_quick:9159516943, ca_inv:543290264,
-    nca:220892609080, nca_inv:217199778593, nca_tan:2625568249, nca_int:488592307, nca_other:578669931,
-    ta:230595416287,
-    cl:20997451257, ncl:40865075512, tl:61862526769,
-    eq_cap:16401461000, eq_surplus:6004063726, eq_adj:-25662755803, eq_oci:-1408375402, eq_re:173398495997, eq:168732889518,
-    net_income:2455948889,
+    label:'2026.6월말',
+    ca:9969312246, ca_quick:9281986444, ca_inv:687325802,
+    nca:220954722505, nca_inv:217275160915, nca_tan:2624905754, nca_int:475312798, nca_other:579343038,
+    ta:230924034751,
+    cl:20615332031, ncl:40866127863, tl:61481459894,
+    eq_cap:16401461000, eq_surplus:6004063726, eq_adj:-25662755803, eq_oci:-1408375402, eq_re:174108181336, eq:169442574857,
+    net_income:3165634228,
   },
   prev: {
+    label:'2025.12월말',
     ca:6027543184, ca_quick:5846635189, ca_inv:180907995,
     nca:223372102371, nca_inv:219385606045, nca_tan:2999320380, nca_int:497463119, nca_other:489712827,
     ta:229399645555,
@@ -1526,7 +1559,7 @@ function renderBS(){
     <div style="font-size:22px;font-weight:800;" class="num">${won(c.ta)}백만원</div>
     <div style="font-size:12px;color:var(--muted);">전기 ${won(p.ta)}백만원 · 증감 ${delta(c.ta,p.ta)}</div>
     <div style="flex:1;"></div>
-    <div style="font-size:12px;color:var(--muted);">2026.5월말 기준</div>
+    <div style="font-size:12px;color:var(--muted);">2026.6월말 기준</div>
   </div>`;
 }
 
