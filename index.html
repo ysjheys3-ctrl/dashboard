@@ -1301,6 +1301,15 @@ function renderDivisionTab(dept){
       <div class="section-note">1~${AS_OF}월 누적 기준</div>
     </div>
     <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);" id="div-yoy-${dept}"></div>
+  </div>
+
+  <!-- 연간 달성률 -->
+  <div class="section">
+    <div class="section-head">
+      <div><p class="eyebrow">Annual Progress</p><h2 class="section-title">연간 사업계획 달성 현황</h2></div>
+      <div class="section-note">2026년 연간 계획 대비 1~${AS_OF}월 누적 실적</div>
+    </div>
+    <div id="div-annual-${dept}"></div>
   </div>`;
 
   // ── KPI 카드 ──
@@ -1437,7 +1446,7 @@ function renderDivisionTab(dept){
     </svg>`;
   }
 
-  function donutCard(label, achv, actual, plan, remain){
+  function donutCard(label, achv, actual, plan, remain, nextMonthPlan){
     const color = achv>=1?'var(--pos)':'var(--neg)';
     const isOver = achv>=1;
     return `<div class="ratio-card" style="text-align:center;padding:22px 16px;">
@@ -1453,15 +1462,15 @@ function renderDivisionTab(dept){
       <div style="font-size:11.5px;color:var(--muted);margin-top:3px;">연간계획 ${eokWon(plan)}</div>
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
         <div style="font-size:11px;color:var(--muted);">잔여 <b style="color:var(--ink)">${eokWon(remain)}</b> · ${moRemain}개월 남음</div>
-        <div style="font-size:10.5px;color:var(--muted);margin-top:2px;">월평균 <b style="color:${color}">${eok(remain/moRemain)}억</b> 필요</div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:2px;">${DATA.asOfMonth+1}월 목표 <b style="color:${color}">${eokWon(nextMonthPlan)}</b></div>
       </div>
     </div>`;
   }
 
   document.getElementById(`div-annual-${dept}`).innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      ${donutCard('매출액 연간 달성', annRevAchv, ytd.revenue_actual, annRevPlan, annRevRemain)}
-      ${donutCard('영업이익 연간 달성', annProfAchv, ytd.profit_actual, annProfPlan, annProfRemain)}
+      ${donutCard('매출액 연간 달성', annRevAchv, ytd.revenue_actual, annRevPlan, annRevRemain, (monthly.revenue_plan||[])[DATA.asOfMonth]||0)}
+      ${donutCard('영업이익 연간 달성', annProfAchv, ytd.profit_actual, annProfPlan, annProfRemain, (monthly.profit_plan||[])[DATA.asOfMonth]||0)}
     </div>`;
 }
 
