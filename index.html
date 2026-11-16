@@ -635,9 +635,9 @@ const MONTH_LABELS = DATA.monthly.ZEROIN ? Array.from({length:12},(_,i)=>(i+1)+'
 if(Array.isArray(DATA.headcount)){
   DATA.headcount = {
     actual: DATA.headcount,
-    plan: Array(12).fill(null),
+    plan: [118,119,120,121,122,122,122,122,122,123,124,124],
     last: DATA.headcount.filter(v=>v!==null).slice(-1)[0] || null,
-    last_year: Array(12).fill(null)
+    last_year: [120,119,118,119,120,118,119,120,121,120,119,119]
   };
 }
 
